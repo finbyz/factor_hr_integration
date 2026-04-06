@@ -143,23 +143,11 @@ app_license = "mit"
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"factor_hr_integration.tasks.all"
-# 	],
-# 	"daily": [
-# 		"factor_hr_integration.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"factor_hr_integration.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"factor_hr_integration.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"factor_hr_integration.tasks.monthly"
-# 	],
-# }
+scheduler_events = {
+	"hourly": [
+		"factor_hr_integration.factorhr_integration.services.sync_service.scheduled_sync"
+	]
+}
 
 # Testing
 # -------

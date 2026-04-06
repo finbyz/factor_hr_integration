@@ -1,0 +1,153 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-03 14:59:44.986491",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "deactivate",
+  "api_endpoint",
+  "username",
+  "password",
+  "user_token",
+  "column_break_qxgy",
+  "default_company",
+  "section_break_sync",
+  "enable_auto_sync",
+  "sync_frequency",
+  "sync_from_date",
+  "column_break_sync2",
+  "last_sync_date",
+  "create_missing_departments",
+  "create_missing_designations",
+  "section_break_fujl",
+  "sync_logs"
+ ],
+ "fields": [
+  {
+   "default": "0",
+   "fieldname": "deactivate",
+   "fieldtype": "Check",
+   "label": "Deactivate"
+  },
+  {
+   "description": "Base URL of FactoHR (e.g., https://app.factohr.com/alcop)",
+   "fieldname": "api_endpoint",
+   "fieldtype": "Data",
+   "label": "API Endpoint",
+   "reqd": 1
+  },
+  {
+   "fieldname": "username",
+   "fieldtype": "Data",
+   "label": "User Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "password",
+   "fieldtype": "Password",
+   "label": "Password",
+   "reqd": 1
+  },
+  {
+   "fieldname": "user_token",
+   "fieldtype": "Small Text",
+   "label": "User Token",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_qxgy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_company",
+   "fieldtype": "Link",
+   "label": "Default Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_sync",
+   "fieldtype": "Section Break",
+   "label": "Sync Configuration"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_auto_sync",
+   "fieldtype": "Check",
+   "label": "Enable Auto Sync"
+  },
+  {
+   "depends_on": "eval:doc.enable_auto_sync==1",
+   "fieldname": "sync_frequency",
+   "fieldtype": "Select",
+   "label": "Sync Frequency",
+   "options": "Hourly\nDaily\nWeekly"
+  },
+  {
+   "description": "Leave blank to sync all employees",
+   "fieldname": "sync_from_date",
+   "fieldtype": "Date",
+   "label": "Sync From Date"
+  },
+  {
+   "fieldname": "column_break_sync2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_sync_date",
+   "fieldtype": "Datetime",
+   "label": "Last Sync Date",
+   "read_only": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "create_missing_departments",
+   "fieldtype": "Check",
+   "label": "Auto Create Missing Departments"
+  },
+  {
+   "default": "1",
+   "fieldname": "create_missing_designations",
+   "fieldtype": "Check",
+   "label": "Auto Create Missing Designations"
+  },
+  {
+   "fieldname": "section_break_fujl",
+   "fieldtype": "Section Break",
+   "label": "Sync Logs"
+  },
+  {
+   "fieldname": "sync_logs",
+   "fieldtype": "Table",
+   "label": "Sync Logs",
+   "options": "FactorHR API Logs"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-04-03 15:08:54.172359",
+ "modified_by": "Administrator",
+ "module": "FactorHR Integration",
+ "name": "FactoHR Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
