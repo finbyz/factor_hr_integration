@@ -106,6 +106,15 @@ class EmployeeSyncService:
 			as_dict=True
 		)
 
+		if not existing_mapping:
+			# Extra check: Check if employee with this ID (emp_code) already exists
+			if frappe.db.exists('Employee', emp_code):
+				# Create mapping for existing employee and return
+				self._create_mapping(emp_code, emp_code)
+				self._update_employee(emp_code, employee_dict, emp_code)
+				self.stats['updated'] += 1
+				return
+
 		if existing_mapping:
 			# Update existing employee
 			self._update_employee(existing_mapping.employee, employee_dict, emp_code)
@@ -123,11 +132,8 @@ class EmployeeSyncService:
 		designation = extract_category_value(categories, 'Designation')
 
 		# Map department and designation
-		if department and self.settings.create_missing_departments:
-			department = self._get_or_create_department(department)
-
-		if designation and self.settings.create_missing_designations:
-			designation = self._get_or_create_designation(designation)
+		department = self._get_or_create_department(department)
+		designation = self._get_or_create_designation(designation)
 
 		# Build employee dict
 		employee_dict = {
@@ -146,7 +152,8 @@ class EmployeeSyncService:
 			'personal_email': emp_data.get('PersonalEmail'),
 			'department': department,
 			'designation': designation,
-			'company': self.settings.default_company
+			'company': self.settings.default_company,
+			'relieving_date': parse_factohr_date(emp_data.get('LeavingDate'))
 		}
 
 		# Add reporting manager if available
@@ -163,6 +170,11 @@ class EmployeeSyncService:
 		"""Create new employee"""
 		try:
 			employee = frappe.get_doc(employee_dict)
+			
+			# Force document name to be the FactorHR employee code
+			# This avoids the naming series based on the user's requirement.
+			employee.name = emp_code
+			
 			employee.insert(ignore_permissions=True)
 
 			# Create mapping
@@ -219,28 +231,73 @@ class EmployeeSyncService:
 			mapping.error_message = None
 			mapping.save(ignore_permissions=True)
 
-	def _get_or_create_department(self, department_name: str) -> str:
-		"""Get or create department"""
-		if not frappe.db.exists('Department', department_name):
-			dept = frappe.get_doc({
-				'doctype': 'Department',
-				'department_name': department_name,
-				'company': self.settings.default_company
-			})
-			dept.insert(ignore_permissions=True)
-			frappe.logger().info(f"Created department: {department_name}")
+	def _get_or_create_department(self, department_name: str) -> Optional[str]:
+		"""Get or create department and return its name (ID)"""
+		if not department_name:
+			return None
+
+		# 1. Search for existing department by department_name and company
+		existing = frappe.db.get_value('Department', 
+			{'department_name': department_name, 'company': self.settings.default_company}, 
+			'name')
+		
+		if existing:
+			return existing
+
+		# 2. If not found and allowed, create it
+		if self.settings.create_missing_departments:
+			try:
+				dept = frappe.get_doc({
+					'doctype': 'Department',
+					'department_name': department_name,
+					'company': self.settings.default_company
+				})
+				dept.insert(ignore_permissions=True)
+				frappe.db.commit() # Commit to avoid losing it if later items fail
+				frappe.logger().info(f"Created department: {dept.name}")
+				return dept.name
+			except frappe.DuplicateEntryError:
+				# 3. Final re-check in case of race condition or naming pattern match
+				existing = frappe.db.get_value('Department', 
+					{'department_name': department_name, 'company': self.settings.default_company}, 
+					'name')
+				return existing or department_name
+			except Exception as e:
+				frappe.log_error(f"Error creating department {department_name}: {str(e)}", "FactoHR Sync Error")
+				return department_name
 
 		return department_name
 
-	def _get_or_create_designation(self, designation_name: str) -> str:
-		"""Get or create designation"""
-		if not frappe.db.exists('Designation', designation_name):
-			desig = frappe.get_doc({
-				'doctype': 'Designation',
-				'designation_name': designation_name
-			})
-			desig.insert(ignore_permissions=True)
-			frappe.logger().info(f"Created designation: {designation_name}")
+	def _get_or_create_designation(self, designation_name: str) -> Optional[str]:
+		"""Get or create designation and return its name (ID)"""
+		if not designation_name:
+			return None
+
+		# 1. Search for existing designation by designation_name
+		existing = frappe.db.exists('Designation', designation_name) or \
+				   frappe.db.get_value('Designation', {'designation_name': designation_name}, 'name')
+		
+		if existing:
+			return existing
+
+		# 2. If not found and allowed, create it
+		if self.settings.create_missing_designations:
+			try:
+				desig = frappe.get_doc({
+					'doctype': 'Designation',
+					'designation_name': designation_name
+				})
+				desig.insert(ignore_permissions=True)
+				frappe.db.commit()
+				frappe.logger().info(f"Created designation: {desig.name}")
+				return desig.name
+			except frappe.DuplicateEntryError:
+				# 3. Final re-check
+				existing = frappe.db.get_value('Designation', {'designation_name': designation_name}, 'name')
+				return existing or designation_name
+			except Exception as e:
+				frappe.log_error(f"Error creating designation {designation_name}: {str(e)}", "FactoHR Sync Error")
+				return designation_name
 
 		return designation_name
 
