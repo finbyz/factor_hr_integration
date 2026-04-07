@@ -21,6 +21,17 @@ app_license = "mit"
 # 	}
 # ]
 
+fixtures = [
+    {
+        "dt": "Custom Field",
+        "filters": {"module": ["in", ["FactorHR Integration"]]},
+    },
+	{
+		"dt": "Property Setter",
+		"filters": {"module": ["in", ["FactorHR Integration"]]},
+	}
+]
+
 # Includes in <head>
 # ------------------
 
