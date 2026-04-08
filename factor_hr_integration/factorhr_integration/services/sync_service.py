@@ -98,7 +98,7 @@ class EmployeeSyncService:
 		if not validate_employee_data(employee_dict):
 			raise ValueError("Employee data validation failed")
 
-		# Check if employee exists
+		# Check if employee exists in mapping
 		existing_mapping = frappe.db.get_value(
 			'FactoHR Employee Mapping',
 			{'factohr_emp_code': emp_code},
@@ -106,23 +106,30 @@ class EmployeeSyncService:
 			as_dict=True
 		)
 
-		if not existing_mapping:
-			# Extra check: Check if employee with this ID (emp_code) already exists
-			if frappe.db.exists('Employee', emp_code):
-				# Create mapping for existing employee and return
-				self._create_mapping(emp_code, emp_code)
-				self._update_employee(emp_code, employee_dict, emp_code)
-				self.stats['updated'] += 1
-				return
-
 		if existing_mapping:
 			# Update existing employee
 			self._update_employee(existing_mapping.employee, employee_dict, emp_code)
 			self.stats['updated'] += 1
 		else:
-			# Create new employee
-			self._create_employee(employee_dict, emp_code)
-			self.stats['created'] += 1
+			# Check if employee_number already exists (without mapping)
+			existing_emp_by_number = frappe.db.get_value(
+				'Employee',
+				{'employee_number': emp_code},
+				'name'
+			)
+			
+			if existing_emp_by_number:
+				# Employee exists but no mapping - create mapping and update
+				frappe.logger().warning(
+					f"Employee with number {emp_code} exists without FactoHR mapping. Creating mapping and updating employee."
+				)
+				self._create_mapping(existing_emp_by_number, emp_code)
+				self._update_employee(existing_emp_by_number, employee_dict, emp_code)
+				self.stats['updated'] += 1
+			else:
+				# Create new employee
+				self._create_employee(employee_dict, emp_code)
+				self.stats['created'] += 1
 
 	def _transform_employee_data(self, emp_data: Dict, categories: List) -> Dict:
 		"""Transform FactoHR data to ERPNext format"""
@@ -169,18 +176,40 @@ class EmployeeSyncService:
 	def _create_employee(self, employee_dict: Dict, emp_code: str):
 		"""Create new employee"""
 		try:
+			# Build employee full name from name fields
+			name_parts = []
+			if employee_dict.get('first_name'):
+				name_parts.append(employee_dict['first_name'])
+			if employee_dict.get('middle_name'):
+				name_parts.append(employee_dict['middle_name'])
+			if employee_dict.get('last_name'):
+				name_parts.append(employee_dict['last_name'])
+			
+			full_name = ' '.join(name_parts) if name_parts else emp_code
+			
+			# Remove naming_series if present to prevent auto-naming
+			if 'naming_series' in employee_dict:
+				del employee_dict['naming_series']
+			
+			# Set employee_name explicitly
+			employee_dict['employee_name'] = full_name
+			
+			# Create employee document
 			employee = frappe.get_doc(employee_dict)
 			
-			# Force document name to be the FactorHR employee code
-			# This avoids the naming series based on the user's requirement.
-			employee.name = emp_code
+			# Set custom naming format: {employee_number}-{employee_name}
+			# This overrides any naming series to use the format you specified
+			custom_name = f"{emp_code}-{full_name}"
+			employee.name = custom_name
 			
+			# Insert with ignore_naming to bypass naming series
+			employee.flags.ignore_naming_series = True
 			employee.insert(ignore_permissions=True)
 
 			# Create mapping
 			self._create_mapping(employee.name, emp_code)
 
-			frappe.logger().info(f"Created employee: {employee.name}")
+			frappe.logger().info(f"Created employee: {employee.name} (Employee Number: {emp_code})")
 
 		except Exception as e:
 			raise Exception(f"Failed to create employee {emp_code}: {str(e)}")
