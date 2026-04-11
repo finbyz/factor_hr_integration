@@ -137,3 +137,26 @@ def extract_reporting_manager(emp_data: Dict, categories: List[Dict]) -> Optiona
 	return manager_name
 
 # Made with Bob
+
+def update_employee_unique_id(doc, method=None):
+    # 1. Force the correct Full Name first
+    # This fixes the issue where employee_name might be 'HR-EMP-00015'
+    name_parts = [doc.first_name, doc.middle_name, doc.last_name]
+    full_name = " ".join(filter(None, name_parts)).strip()
+    
+    if full_name:
+        doc.employee_name = full_name
+
+    # 2. Generate the Unique ID with the Dash
+    emp_num = (doc.employee_number or "").strip()
+    
+    if emp_num and doc.employee_name:
+        doc.employee_unique_id = f"{emp_num}-{doc.employee_name}"
+    else:
+        # Fallback if no number exists yet
+        doc.employee_unique_id = doc.employee_name
+
+    # 3. CRITICAL: If this is a new document, we manually set the 'name' 
+    # field so the Autoname logic doesn't have to guess.
+    if doc.is_new():
+        doc.name = doc.employee_unique_id

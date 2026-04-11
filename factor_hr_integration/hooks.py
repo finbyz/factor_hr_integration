@@ -143,13 +143,12 @@ fixtures = [
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+    "Employee": {
+        "before_save": "factor_hr_integration.factorhr_integration.utils.data_utils.update_employee_unique_id",
+        "before_insert": "factor_hr_integration.factorhr_integration.utils.data_utils.update_employee_unique_id",
+    }
+}
 
 # Scheduled Tasks
 # ---------------

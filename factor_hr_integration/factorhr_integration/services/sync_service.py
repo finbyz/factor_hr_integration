@@ -197,7 +197,7 @@ class EmployeeSyncService:
 			# Create employee document
 			employee = frappe.get_doc(employee_dict)
 			
-			# Set custom naming format: {employee_number}-{employee_name}
+			# Set custom naming format: {it should shmber}-{employee_name}
 			# This overrides any naming series to use the format you specified
 			custom_name = f"{emp_code}-{full_name}"
 			employee.name = custom_name
