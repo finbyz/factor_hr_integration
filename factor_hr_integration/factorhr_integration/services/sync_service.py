@@ -7,6 +7,7 @@ from factor_hr_integration.factorhr_integration.utils.data_utils import (
 	parse_factohr_date,
 	extract_category_value,
 	map_status,
+	determine_employee_status,
 	validate_employee_data,
 	extract_reporting_manager
 )
@@ -91,8 +92,8 @@ class EmployeeSyncService:
 		if not emp_code:
 			raise ValueError("Employee code is missing")
 
-		# Transform data
-		employee_dict = self._transform_employee_data(emp_data, categories)
+		# Transform data - pass the full factohr_data to access candidate status
+		employee_dict = self._transform_employee_data(emp_data, categories, factohr_data)
 
 		# Validate data
 		if not validate_employee_data(employee_dict):
@@ -131,7 +132,7 @@ class EmployeeSyncService:
 				self._create_employee(employee_dict, emp_code)
 				self.stats['created'] += 1
 
-	def _transform_employee_data(self, emp_data: Dict, categories: List) -> Dict:
+	def _transform_employee_data(self, emp_data: Dict, categories: List, factohr_data: Dict = None) -> Dict:
 		"""Transform FactoHR data to ERPNext format"""
 
 		# Extract department and designation from categories
@@ -141,6 +142,24 @@ class EmployeeSyncService:
 		# Map department and designation
 		department = self._get_or_create_department(department)
 		designation = self._get_or_create_designation(designation)
+
+		# Determine employee status based on candidate and employee status
+		# Extract candidate status and employee status from the API response
+		candidate_status = None
+		employee_status = emp_data.get('Status')
+		
+		# Check if there's candidate-related data in the response
+		if factohr_data:
+			# Try to get candidate status from various possible locations
+			candidate_status = (
+				factohr_data.get('CandidateStatus') or 
+				factohr_data.get('ModuleStatus') or
+				emp_data.get('CandidateStatus') or
+				emp_data.get('ModuleStatus')
+			)
+		
+		# Determine final status using the new logic
+		final_status = determine_employee_status(candidate_status, employee_status)
 
 		# Build employee dict
 		employee_dict = {
@@ -153,7 +172,7 @@ class EmployeeSyncService:
 			'gender': emp_data.get('Gender'),
 			'date_of_birth': parse_factohr_date(emp_data.get('DateOfBirth')),
 			'date_of_joining': parse_factohr_date(emp_data.get('JoiningDate')),
-			'status': map_status(emp_data.get('Status')),
+			'status': final_status,
 			'cell_number': emp_data.get('Mobile'),
 			'company_email': emp_data.get('Email'),
 			'personal_email': emp_data.get('PersonalEmail'),
@@ -361,4 +380,3 @@ def scheduled_sync():
 	except Exception as e:
 		frappe.log_error(f"Scheduled sync failed: {str(e)}", "FactoHR Scheduled Sync")
 
-# Made with Bob

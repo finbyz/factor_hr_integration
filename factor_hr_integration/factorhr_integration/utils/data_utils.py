@@ -64,10 +64,40 @@ def map_status(factohr_status: str) -> str:
 		'Active': 'Active',
 		'Inactive': 'Left',
 		'Left': 'Left',
-		'Suspended': 'Suspended'
+		'Suspended': 'Suspended',
+		'Withdrawn': 'Withdrawn',      # ADD THIS
+		'Withdraw': 'Withdrawn',       # ADD THIS (alternative spelling)
+		'Offer Withdrawn': 'Withdrawn' # ADD THIS (variation)
 	}
 
 	return status_mapping.get(factohr_status, 'Active')
+
+
+def determine_employee_status(candidate_status: Optional[str], employee_status: Optional[str]) -> str:
+	"""
+	Determine final employee status based on candidate and employee status from FactoHR
+	
+	Priority Logic:
+	1. If CandidateStatus is "Withdrawn", set status to "Withdrawn"
+	2. Otherwise, use EmployeeStatus (Active/Inactive)
+	
+	Args:
+		candidate_status: Candidate status from FactoHR (Withdrawn, Selected, Rejected, etc.)
+		employee_status: Employee status from FactoHR (Active, Inactive)
+	
+	Returns:
+		ERPNext employee status (Active, Inactive, Suspended, Left, Withdrawn)
+	"""
+	# Check if candidate status is Withdrawn (higher priority)
+	if candidate_status and candidate_status == 'Withdrawn':
+		return 'Withdrawn'
+	
+	# Fall back to employee status
+	if employee_status:
+		return map_status(employee_status)
+	
+	# Default to Active if both are missing
+	return 'Active'
 
 
 def validate_employee_data(employee_dict: Dict) -> bool:
@@ -136,7 +166,7 @@ def extract_reporting_manager(emp_data: Dict, categories: List[Dict]) -> Optiona
 
 	return manager_name
 
-# Made with Bob
+# 
 
 def update_employee_unique_id(doc, method=None):
     # 1. Force the correct Full Name first
@@ -160,3 +190,29 @@ def update_employee_unique_id(doc, method=None):
     # field so the Autoname logic doesn't have to guess.
     if doc.is_new():
         doc.name = doc.employee_unique_id
+
+
+
+def override_employee_status_validation(doc, method=None):
+	"""
+	Override Employee status validation to allow 'Withdrawn' status
+	This is called before the standard validate() method runs
+	"""
+	from erpnext.controllers import status_updater
+	
+	# Store the original validate_status function
+	original_validate_status = status_updater.validate_status
+	
+	# Create a wrapper that allows 'Withdrawn' status
+	def custom_validate_status(status, options):
+		# Add 'Withdrawn' to the allowed options if not already present
+		if "Withdrawn" not in options:
+			options = list(options) + ["Withdrawn"]
+		return original_validate_status(status, options)
+	
+	# Temporarily replace the validate_status function
+	status_updater.validate_status = custom_validate_status
+	
+	# Store reference to restore later (will be restored after validation)
+	if not hasattr(frappe.local, '_original_validate_status'):
+		frappe.local._original_validate_status = original_validate_status

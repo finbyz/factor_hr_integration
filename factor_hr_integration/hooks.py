@@ -147,6 +147,7 @@ doc_events = {
     "Employee": {
         "before_save": "factor_hr_integration.factorhr_integration.utils.data_utils.update_employee_unique_id",
         "before_insert": "factor_hr_integration.factorhr_integration.utils.data_utils.update_employee_unique_id",
+        "before_validate": "factor_hr_integration.factorhr_integration.utils.data_utils.override_employee_status_validation",
     }
 }
 
